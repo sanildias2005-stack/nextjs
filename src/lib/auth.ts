@@ -4,6 +4,7 @@ import { db } from "./db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { seedAdmin } from "./seed";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -15,6 +16,9 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) return null;
+
+                // Ensure the test admin exists
+                await seedAdmin();
 
                 const user = await db.query.users.findFirst({
                     where: eq(users.email, credentials.email),
