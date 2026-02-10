@@ -121,35 +121,6 @@ export default function AiNotesPage() {
                     )}
                 </section>
             </main>
-
-            <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
-          margin-top: 1.5rem;
-          margin-bottom: 1rem;
-          color: white;
-        }
-        .markdown-content ul, .markdown-content ol {
-          margin-left: 1.5rem;
-          margin-bottom: 1rem;
-        }
-        .markdown-content li {
-          margin-bottom: 0.5rem;
-        }
-        .markdown-content p {
-          margin-bottom: 1rem;
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
         </div>
     );
 }
