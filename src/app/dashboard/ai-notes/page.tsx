@@ -192,102 +192,30 @@ export default function AiStudioPage() {
 
                 <section style={{ maxWidth: '1000px', margin: '0 auto' }}>
 
-                    {/* Tool Tabs */}
-                    {!fullText && (
-                        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem' }}>
-                            <button
-                                onClick={() => { setActiveTab("youtube"); resetAll(); }}
-                                style={{
-                                    padding: '0.75rem 1.5rem',
-                                    borderRadius: '0.75rem',
-                                    border: '1px solid var(--border)',
-                                    background: activeTab === 'youtube' ? 'var(--primary)' : 'var(--glass)',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <Youtube size={18} /> YouTube
-                            </button>
-                            <button
-                                onClick={() => { setActiveTab("document"); resetAll(); }}
-                                style={{
-                                    padding: '0.75rem 1.5rem',
-                                    borderRadius: '0.75rem',
-                                    border: '1px solid var(--border)',
-                                    background: activeTab === 'document' ? 'var(--primary)' : 'var(--glass)',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <FileText size={18} /> Document
-                            </button>
-                        </div>
-                    )}
-
                     {/* Input Card */}
                     {!fullText && (
                         <div className="card" style={{ maxWidth: 'none', marginBottom: '2rem' }}>
-                            {activeTab === "youtube" ? (
-                                <form onSubmit={handleYoutubeGenerate}>
-                                    <div className="form-group">
-                                        <label className="label">Paste YouTube Video URL</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <Youtube style={{ position: 'absolute', left: '12px', top: '12px', color: '#ef4444' }} size={20} />
-                                            <input
-                                                type="url"
-                                                className="input"
-                                                style={{ paddingLeft: '40px' }}
-                                                placeholder="https://www.youtube.com/watch?v=..."
-                                                value={url}
-                                                onChange={(e) => setUrl(e.target.value)}
-                                                required
-                                            />
-                                        </div>
+                            <form onSubmit={handleYoutubeGenerate}>
+                                <div className="form-group">
+                                    <label className="label">Paste YouTube Video URL</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <Youtube style={{ position: 'absolute', left: '12px', top: '12px', color: '#ef4444' }} size={20} />
+                                        <input
+                                            type="url"
+                                            className="input"
+                                            style={{ paddingLeft: '40px' }}
+                                            placeholder="https://www.youtube.com/watch?v=..."
+                                            value={url}
+                                            onChange={(e) => setUrl(e.target.value)}
+                                            required
+                                        />
                                     </div>
-                                    <button type="submit" className="button" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                        {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                                        {loading ? "Analyzing..." : "Summarize Video"}
-                                    </button>
-                                </form>
-                            ) : (
-                                <div
-                                    style={{
-                                        border: '2px dashed var(--border)',
-                                        borderRadius: '1rem',
-                                        padding: '2.5rem',
-                                        textAlign: 'center',
-                                        cursor: 'pointer'
-                                    }}
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    <input type="file" hidden ref={fileInputRef} onChange={(e) => { setFile(e.target.files?.[0] || null); setError(""); }} accept=".pdf,.txt" />
-                                    {file ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <FileText size={40} style={{ color: 'var(--primary)', marginBottom: '10px' }} />
-                                            <p style={{ fontSize: '0.875rem' }}>{file.name}</p>
-                                            <button
-                                                className="button"
-                                                onClick={(e) => { e.stopPropagation(); handleDocAnalyze(); }}
-                                                disabled={loading}
-                                                style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}
-                                            >
-                                                {loading ? "Analyzing..." : "Analyze Document"}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <Paperclip size={30} style={{ color: '#9ca3af', marginBottom: '10px' }} />
-                                            <p style={{ color: '#9ca3af' }}>Click to select PDF or TXT</p>
-                                        </>
-                                    )}
                                 </div>
-                            )}
+                                <button type="submit" className="button" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
+                                    {loading ? "Analyzing..." : "Summarize Video"}
+                                </button>
+                            </form>
                         </div>
                     )}
 
