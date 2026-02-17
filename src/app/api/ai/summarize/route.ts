@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error("AI Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("AI Summarize Error:", error);
+        return NextResponse.json({ error: "Failed to generate summary: " + (error.message || "Unknown error") }, { status: 500 });
     }
 }
