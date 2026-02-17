@@ -18,3 +18,21 @@ export const savedNotes = pgTable("saved_notes", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const documents = pgTable("documents", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  content: text("content").notNull(),
+  fileType: text("file_type").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const documentMessages = pgTable("document_messages", {
+  id: text("id").primaryKey(),
+  documentId: text("document_id").notNull(),
+  userId: text("user_id").notNull(),
+  role: text("role").$type<"user" | "assistant">().notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});

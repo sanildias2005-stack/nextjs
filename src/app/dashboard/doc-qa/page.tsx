@@ -11,6 +11,7 @@ export default function DocQaPage() {
     const { data: session } = useSession();
     const [file, setFile] = useState<File | null>(null);
     const [docText, setDocText] = useState("");
+    const [documentId, setDocumentId] = useState("");
     const [question, setQuestion] = useState("");
     const [loading, setLoading] = useState(false);
     const [chat, setChat] = useState<{ role: string; content: string }[]>([]);
@@ -21,6 +22,7 @@ export default function DocQaPage() {
         if (e.target.files?.[0]) {
             setFile(e.target.files[0]);
             setDocText(""); // Reset text when new file is selected
+            setDocumentId(""); // Reset ID
             setChat([]); // Clear chat for new doc
             setError("");
         }
@@ -43,6 +45,7 @@ export default function DocQaPage() {
             const data = await res.json();
             if (res.ok) {
                 setDocText(data.text);
+                setDocumentId(data.documentId);
                 setChat([{ role: "system", content: `Document "${file.name}" uploaded and parsed successfully. You can now ask questions about it.` }]);
             } else {
                 setError(data.error || "Failed to upload document");
@@ -69,6 +72,7 @@ export default function DocQaPage() {
             formData.append("file", file);
         }
         formData.append("docText", docText);
+        formData.append("documentId", documentId);
         formData.append("question", question);
 
         try {
@@ -80,6 +84,7 @@ export default function DocQaPage() {
             const data = await res.json();
             if (res.ok) {
                 if (data.docText) setDocText(data.docText);
+                if (data.documentId) setDocumentId(data.documentId);
                 setChat((prev) => [...prev, { role: "assistant", content: data.answer }]);
             } else {
                 setError(data.error || "Failed to get answer");
@@ -176,7 +181,7 @@ export default function DocQaPage() {
                                         <FileText size={20} style={{ color: 'var(--primary)' }} />
                                         <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{file?.name}</span>
                                     </div>
-                                    <button onClick={() => { setDocText(""); setFile(null); setChat([]); }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>
+                                    <button onClick={() => { setDocText(""); setFile(null); setChat([]); setDocumentId(""); }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>
                                         <X size={16} />
                                     </button>
                                 </div>

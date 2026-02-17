@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-export const dynamic = 'force-dynamic';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Groq from "groq-sdk";
+import { db } from "@/lib/db";
+import { documents, documentMessages } from "@/db/schema";
+import { v4 as uuidv4 } from "uuid";
+
+// @ts-ignore
 const pdf = require("pdf-parse");
+
+export const dynamic = 'force-dynamic';
 
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY || "",
@@ -11,7 +17,7 @@ const groq = new Groq({
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    if (!session || !session.user || !session.user.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -19,11 +25,12 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const file = formData.get("file") as File;
         const question = formData.get("question") as string;
-        const docText = formData.get("docText") as string;
+        const docTextParam = formData.get("docText") as string;
+        let documentId = formData.get("documentId") as string;
 
-        let contentToAnalyze = docText || "";
+        let contentToAnalyze = docTextParam || "";
 
-        // If a new file is uploaded, parse it
+        // 1. Handle File Upload
         if (file) {
             try {
                 const bytes = await file.arrayBuffer();
@@ -38,21 +45,52 @@ export async function POST(req: NextRequest) {
                 } else {
                     contentToAnalyze = buffer.toString("utf-8");
                 }
+
+                if (!contentToAnalyze || contentToAnalyze.trim().length === 0) {
+                    return NextResponse.json({ error: "Could not extract text from document." }, { status: 400 });
+                }
+
+                // Save to DB
+                // Only save if it's a new file (we assume file presence means new upload)
+                const newDocId = uuidv4();
+                await db.insert(documents).values({
+                    id: newDocId,
+                    userId: session.user.id,
+                    name: file.name,
+                    content: contentToAnalyze,
+                    fileType: file.type === "application/pdf" ? "pdf" : "text",
+                });
+                documentId = newDocId;
+
             } catch (fileErr: any) {
                 return NextResponse.json({ error: "File processing error: " + fileErr.message }, { status: 400 });
             }
         }
 
-        if (!contentToAnalyze || contentToAnalyze.trim().length === 0) {
-            return NextResponse.json({ error: "Could not extract any text from the document. Please try a different file." }, { status: 400 });
-        }
-
+        // Return early if just uploading (no question)
         if (!question) {
-            // If no question, just return the parsed text so the client can store it
-            return NextResponse.json({ text: contentToAnalyze });
+            return NextResponse.json({
+                text: contentToAnalyze,
+                documentId
+            });
         }
 
-        // 2. AI QA
+        // 2. Handle Question (AI QA)
+        if (!contentToAnalyze) {
+            return NextResponse.json({ error: "No document content provided." }, { status: 400 });
+        }
+
+        // Save User Message
+        if (documentId) {
+            await db.insert(documentMessages).values({
+                id: uuidv4(),
+                documentId,
+                userId: session.user.id,
+                role: "user",
+                content: question,
+            });
+        }
+
         const completion = await groq.chat.completions.create({
             messages: [
                 {
@@ -67,9 +105,23 @@ export async function POST(req: NextRequest) {
             model: "llama-3.3-70b-versatile",
         });
 
+        const answer = completion.choices[0]?.message?.content || "No answer generated.";
+
+        // Save Assistant Message
+        if (documentId) {
+            await db.insert(documentMessages).values({
+                id: uuidv4(),
+                documentId,
+                userId: session.user.id,
+                role: "assistant",
+                content: answer,
+            });
+        }
+
         return NextResponse.json({
-            answer: completion.choices[0]?.message?.content || "No answer generated.",
-            docText: contentToAnalyze // Send back to client to avoid re-parsing
+            answer,
+            docText: contentToAnalyze,
+            documentId
         });
 
     } catch (error: any) {
