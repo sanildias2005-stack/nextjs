@@ -7,6 +7,8 @@ import { documents, documentMessages } from "@/db/schema";
 import { v4 as uuidv4 } from "uuid";
 import { eq } from "drizzle-orm";
 // import FirecrawlApp from "@mendable/firecrawl-js"; // Uncomment when ready to use real API
+// @ts-ignore
+import PDFParser from "pdf2json";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,29 +29,6 @@ const searchWeb = async (query: string) => {
 };
 
 export async function POST(req: NextRequest) {
-    // Polyfill DOMMatrix for pdf-parse/pdfjs-dist compatibility in Node.js
-    // @ts-ignore
-    if (typeof global.DOMMatrix === "undefined") {
-        // @ts-ignore
-        global.DOMMatrix = class DOMMatrix {
-            constructor() { }
-            toString() { return "matrix(1, 0, 0, 1, 0, 0)"; }
-        };
-    }
-
-    // Polyfill Promise.withResolvers if missing (Node < 22)
-    if (typeof Promise.withResolvers === "undefined") {
-        // @ts-ignore
-        Promise.withResolvers = function () {
-            let resolve, reject;
-            const promise = new Promise((res, rej) => {
-                resolve = res;
-                reject = rej;
-            });
-            return { promise, resolve, reject };
-        };
-    }
-
     const session = await getServerSession(authOptions);
     if (!session || !session.user || !session.user.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,19 +48,24 @@ export async function POST(req: NextRequest) {
                 let content = "";
 
                 if (file.type === "application/pdf") {
-                    // @ts-ignore
-                    const pdf = require("pdf-parse");
-                    const data = await pdf(buffer).catch((err: any) => {
-                        console.error("PDF Parse Error:", err);
-                        throw new Error("Failed to parse PDF.");
+                    const parser = new PDFParser(null, 1); // 1 = text content only
+
+                    content = await new Promise((resolve, reject) => {
+                        parser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
+                        parser.on("pdfParser_dataReady", (pdfData: any) => {
+                            // Extract text from the confusing pdf2json format
+                            // @ts-ignore
+                            const rawText = parser.getRawTextContent();
+                            resolve(rawText);
+                        });
+                        parser.parseBuffer(buffer);
                     });
-                    content = data.text;
                 } else {
                     content = buffer.toString("utf-8");
                 }
 
-                if (!content.trim()) {
-                    return NextResponse.json({ error: "Empty file content." }, { status: 400 });
+                if (!content || !content.trim()) {
+                    return NextResponse.json({ error: "Empty or unreadable file content." }, { status: 400 });
                 }
 
                 // Save new document to DB (User's Workspace)
@@ -93,6 +77,7 @@ export async function POST(req: NextRequest) {
                     fileType: file.type === "application/pdf" ? "pdf" : "text",
                 });
             } catch (fileErr: any) {
+                console.error("PDF Parse Error:", fileErr);
                 return NextResponse.json({ error: "File upload failed: " + fileErr.message }, { status: 400 });
             }
         }
