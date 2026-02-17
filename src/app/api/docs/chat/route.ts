@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 // import FirecrawlApp from "@mendable/firecrawl-js"; // Uncomment when ready to use real API
 // @ts-ignore
 import PDFParser from "pdf2json";
+import mammoth from "mammoth";
 
 export const dynamic = 'force-dynamic';
 
@@ -46,8 +47,10 @@ export async function POST(req: NextRequest) {
                 const bytes = await file.arrayBuffer();
                 const buffer = Buffer.from(bytes);
                 let content = "";
+                let fileType = "text";
 
                 if (file.type === "application/pdf") {
+                    fileType = "pdf";
                     const parser = new PDFParser(null, 1); // 1 = text content only
 
                     content = await new Promise((resolve, reject) => {
@@ -60,6 +63,13 @@ export async function POST(req: NextRequest) {
                         });
                         parser.parseBuffer(buffer);
                     });
+                } else if (
+                    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+                    file.name.endsWith(".docx")
+                ) {
+                    fileType = "docx";
+                    const result = await mammoth.extractRawText({ buffer: buffer });
+                    content = result.value;
                 } else {
                     content = buffer.toString("utf-8");
                 }
@@ -74,10 +84,10 @@ export async function POST(req: NextRequest) {
                     userId: session.user.id,
                     name: file.name,
                     content: content,
-                    fileType: file.type === "application/pdf" ? "pdf" : "text",
+                    fileType: fileType,
                 });
             } catch (fileErr: any) {
-                console.error("PDF Parse Error:", fileErr);
+                console.error("File Parse Error:", fileErr);
                 return NextResponse.json({ error: "File upload failed: " + fileErr.message }, { status: 400 });
             }
         }

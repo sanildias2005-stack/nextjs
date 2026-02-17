@@ -196,7 +196,7 @@ export default function DocQaPage() {
                                     </div>
                                 </div>
                             )}
-                            <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt" />
+                            <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt,.md,.docx,.doc" />
                             {error && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem' }}>{error}</p>}
                         </div>
                     </div>
