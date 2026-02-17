@@ -5,7 +5,7 @@ import Groq from "groq-sdk";
 import { db } from "@/lib/db";
 import { documents, documentMessages } from "@/db/schema";
 import { v4 as uuidv4 } from "uuid";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 // import FirecrawlApp from "@mendable/firecrawl-js"; // Uncomment when ready to use real API
 // @ts-ignore
 import PDFParser from "pdf2json";
@@ -180,5 +180,32 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(userDocs.map(d => ({ id: d.id, name: d.name, createdAt: d.createdAt })));
     } catch (error: any) {
         return NextResponse.json({ error: "Failed to fetch documents" }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+        const { searchParams } = new URL(req.url);
+        const documentId = searchParams.get("documentId");
+
+        if (!documentId) {
+            return NextResponse.json({ error: "Document ID required" }, { status: 400 });
+        }
+
+        await db.delete(documents)
+            .where(and(eq(documents.id, documentId), eq(documents.userId, session.user.id)));
+
+        // Also delete messages associated with this doc if needed, but for now we keep it simple.
+        // Ideally: await db.delete(documentMessages).where(eq(documentMessages.documentId, documentId));
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error("Delete Error:", error);
+        return NextResponse.json({ error: "Failed to delete document" }, { status: 500 });
     }
 }

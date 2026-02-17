@@ -116,6 +116,25 @@ export default function DocQaPage() {
         }
     };
 
+    const handleDelete = async (docId: string) => {
+        if (!confirm("Are you sure you want to delete this document?")) return;
+
+        try {
+            const res = await fetch(`/api/docs/chat?documentId=${docId}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                setWorkspaceDocs(prev => prev.filter(d => d.id !== docId));
+                setChat(prev => [...prev, { role: "system", content: "Document deleted." }]);
+            } else {
+                alert("Failed to delete document");
+            }
+        } catch (e) {
+            console.error("Delete failed", e);
+        }
+    };
+
     return (
         <div className="dashboard-layout">
             <aside className="sidebar">
@@ -162,12 +181,22 @@ export default function DocQaPage() {
                             ) : (
                                 workspaceDocs.map(doc => (
                                     <div key={doc.id} style={{
-                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                         padding: '0.75rem', background: 'rgba(255,255,255,0.05)',
                                         borderRadius: '0.5rem', fontSize: '0.875rem'
                                     }}>
-                                        <FileText size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                            <FileText size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDelete(doc.id)}
+                                            style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '4px' }}
+                                            title="Delete Document"
+                                            className="hover:text-red-500"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 ))
                             )}
