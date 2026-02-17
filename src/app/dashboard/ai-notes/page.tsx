@@ -167,7 +167,10 @@ export default function AiStudioPage() {
                             <Link href="/dashboard" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>Dashboard</Link>
                         </li>
                         <li style={{ marginBottom: '1rem' }}>
-                            <Link href="/dashboard/ai-notes" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>AI Studio</Link>
+                            <Link href="/dashboard/ai-notes" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>AI Study Notes</Link>
+                        </li>
+                        <li style={{ marginBottom: '1rem' }}>
+                            <Link href="/dashboard/doc-qa" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>Doc QA Tool</Link>
                         </li>
                         {(session?.user as any)?.role === "admin" && (
                             <li style={{ marginBottom: '1rem' }}>
