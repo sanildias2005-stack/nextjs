@@ -16,23 +16,25 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { videoUrl } = await req.json();
-        if (!videoUrl) {
-            return NextResponse.json({ error: "Video URL is required" }, { status: 400 });
-        }
+        const { videoUrl, docText } = await req.json();
 
-        // 1. Fetch Transcript
         let transcriptText = "";
-        try {
-            const transcript = await YoutubeTranscript.fetchTranscript(videoUrl);
-            transcriptText = transcript.map((t: any) => t.text).join(" ");
-        } catch (e) {
-            console.error("Transcript error:", e);
-            return NextResponse.json({ error: "Could not fetch transcript. Make sure the video has captions enabled." }, { status: 400 });
+
+        if (docText) {
+            transcriptText = docText;
+        } else if (videoUrl) {
+            // 1. Fetch Transcript for YouTube
+            try {
+                const transcript = await YoutubeTranscript.fetchTranscript(videoUrl);
+                transcriptText = transcript.map((t: any) => t.text).join(" ");
+            } catch (e) {
+                console.error("Transcript error:", e);
+                return NextResponse.json({ error: "Could not fetch transcript. Make sure the video has captions enabled." }, { status: 400 });
+            }
         }
 
-        if (transcriptText.length < 100) {
-            return NextResponse.json({ error: "Transcript too short to summarize." }, { status: 400 });
+        if (!transcriptText || transcriptText.length < 50) {
+            return NextResponse.json({ error: "Content too short to summarize." }, { status: 400 });
         }
 
         // 2. AI Summarization
