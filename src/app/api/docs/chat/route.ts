@@ -6,13 +6,10 @@ import { db } from "@/lib/db";
 import { documents, documentMessages } from "@/db/schema";
 import { v4 as uuidv4 } from "uuid";
 
-// @ts-ignore
-const pdf = require("pdf-parse");
-
 export const dynamic = 'force-dynamic';
 
 const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY || "",
+    apiKey: process.env.GROQ_API_KEY || "dummy_key_for_build",
 });
 
 export async function POST(req: NextRequest) {
@@ -37,6 +34,8 @@ export async function POST(req: NextRequest) {
                 const buffer = Buffer.from(bytes);
 
                 if (file.type === "application/pdf") {
+                    // @ts-ignore
+                    const pdf = require("pdf-parse");
                     const data = await pdf(buffer).catch((err: any) => {
                         console.error("PDF Parse Error Internal:", err);
                         throw new Error("Failed to parse PDF content. It might be encrypted or corrupted.");
