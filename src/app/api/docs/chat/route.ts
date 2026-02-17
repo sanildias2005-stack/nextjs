@@ -27,6 +27,29 @@ const searchWeb = async (query: string) => {
 };
 
 export async function POST(req: NextRequest) {
+    // Polyfill DOMMatrix for pdf-parse/pdfjs-dist compatibility in Node.js
+    // @ts-ignore
+    if (typeof global.DOMMatrix === "undefined") {
+        // @ts-ignore
+        global.DOMMatrix = class DOMMatrix {
+            constructor() { }
+            toString() { return "matrix(1, 0, 0, 1, 0, 0)"; }
+        };
+    }
+
+    // Polyfill Promise.withResolvers if missing (Node < 22)
+    if (typeof Promise.withResolvers === "undefined") {
+        // @ts-ignore
+        Promise.withResolvers = function () {
+            let resolve, reject;
+            const promise = new Promise((res, rej) => {
+                resolve = res;
+                reject = rej;
+            });
+            return { promise, resolve, reject };
+        };
+    }
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user || !session.user.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
