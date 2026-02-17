@@ -87,11 +87,17 @@ export default function AiStudioPage() {
 
             const data = await res.json();
             if (res.ok) {
-                setFullText(data.text);
+                const extractedText = data.text || data.docText;
+                if (!extractedText) {
+                    setError("The file was uploaded but no text could be extracted.");
+                    setLoading(false);
+                    return;
+                }
+                setFullText(extractedText);
                 // Automatically generate a summary for the doc too
-                generateDocSummary(data.text);
+                generateDocSummary(extractedText);
             } else {
-                setError(data.error || "Failed to upload document");
+                setError(data.error || "Failed to upload document. Please check the file format.");
                 setLoading(false);
             }
         } catch (err) {

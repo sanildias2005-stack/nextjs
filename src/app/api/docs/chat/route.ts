@@ -20,23 +20,30 @@ export async function POST(req: NextRequest) {
         const question = formData.get("question") as string;
         const docText = formData.get("docText") as string;
 
-        let contentToAnalyze = docText;
+        let contentToAnalyze = docText || "";
 
         // If a new file is uploaded, parse it
         if (file) {
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
+            try {
+                const bytes = await file.arrayBuffer();
+                const buffer = Buffer.from(bytes);
 
-            if (file.type === "application/pdf") {
-                const data = await pdf(buffer);
-                contentToAnalyze = data.text;
-            } else {
-                contentToAnalyze = buffer.toString("utf-8");
+                if (file.type === "application/pdf") {
+                    const data = await pdf(buffer).catch((err: any) => {
+                        console.error("PDF Parse Error Internal:", err);
+                        throw new Error("Failed to parse PDF content. It might be encrypted or corrupted.");
+                    });
+                    contentToAnalyze = data.text;
+                } else {
+                    contentToAnalyze = buffer.toString("utf-8");
+                }
+            } catch (fileErr: any) {
+                return NextResponse.json({ error: "File processing error: " + fileErr.message }, { status: 400 });
             }
         }
 
-        if (!contentToAnalyze) {
-            return NextResponse.json({ error: "No document content found." }, { status: 400 });
+        if (!contentToAnalyze || contentToAnalyze.trim().length === 0) {
+            return NextResponse.json({ error: "Could not extract any text from the document. Please try a different file." }, { status: 400 });
         }
 
         if (!question) {
