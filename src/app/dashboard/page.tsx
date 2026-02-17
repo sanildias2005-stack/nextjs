@@ -25,6 +25,9 @@ export default async function DashboardPage() {
                         <li style={{ marginBottom: '1rem' }}>
                             <Link href="/dashboard/ai-notes" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>AI Study Notes</Link>
                         </li>
+                        <li style={{ marginBottom: '1rem' }}>
+                            <Link href="/dashboard/doc-qa" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>Doc QA Tool</Link>
+                        </li>
                         {user.role === "admin" && (
                             <li style={{ marginBottom: '1rem' }}>
                                 <Link href="/admin" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>Admin Panel</Link>

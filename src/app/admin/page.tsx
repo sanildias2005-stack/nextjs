@@ -56,6 +56,9 @@ export default function AdminPage() {
                             <Link href="/dashboard/ai-notes" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>AI Study Notes</Link>
                         </li>
                         <li style={{ marginBottom: '1rem' }}>
+                            <Link href="/dashboard/doc-qa" style={{ color: '#9ca3af', textDecoration: 'none', fontWeight: '500' }}>Doc QA Tool</Link>
+                        </li>
+                        <li style={{ marginBottom: '1rem' }}>
                             <Link href="/admin" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Admin Panel</Link>
                         </li>
                     </ul>
