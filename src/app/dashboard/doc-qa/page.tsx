@@ -1,29 +1,54 @@
 "use client";
 
-import { useState, useRef } from "react";
+// ... imports
+import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
 import ReactMarkdown from "react-markdown";
-import { FileText, Upload, Send, Loader2, MessageSquare, Paperclip, X } from "lucide-react";
+import { FileText, Upload, Send, Loader2, MessageSquare, Paperclip, X, User, Bot, Search, Trash2 } from "lucide-react";
+
+type Doc = { id: string; name: string };
 
 export default function DocQaPage() {
     const { data: session } = useSession();
     const [file, setFile] = useState<File | null>(null);
-    const [docText, setDocText] = useState("");
-    const [documentId, setDocumentId] = useState("");
+    const [workspaceDocs, setWorkspaceDocs] = useState<Doc[]>([]);
     const [question, setQuestion] = useState("");
     const [loading, setLoading] = useState(false);
-    const [chat, setChat] = useState<{ role: string; content: string }[]>([]);
+    const [chat, setChat] = useState<{ role: string; content: string; sources?: string[] }[]>([]);
     const [error, setError] = useState("");
+    const [deepSearch, setDeepSearch] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    // Fetch documents on load
+    useEffect(() => {
+        fetchDocs();
+    }, [session]);
+
+    const fetchDocs = async () => {
+        try {
+            const res = await fetch("/api/docs/chat");
+            if (res.ok) {
+                const data = await res.json();
+                setWorkspaceDocs(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch docs", e);
+        }
+    };
+
+    // Scroll to bottom of chat
+    useEffect(() => {
+        if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+    }, [chat]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             setFile(e.target.files[0]);
-            setDocText(""); // Reset text when new file is selected
-            setDocumentId(""); // Reset ID
-            setChat([]); // Clear chat for new doc
             setError("");
         }
     };
@@ -44,9 +69,9 @@ export default function DocQaPage() {
 
             const data = await res.json();
             if (res.ok) {
-                setDocText(data.text);
-                setDocumentId(data.documentId);
-                setChat([{ role: "system", content: `Document "${file.name}" uploaded and parsed successfully. You can now ask questions about it.` }]);
+                setFile(null);
+                fetchDocs(); // Refresh list
+                setChat(prev => [...prev, { role: "system", content: `File "${file.name}" added to workspace.` }]);
             } else {
                 setError(data.error || "Failed to upload document");
             }
@@ -59,7 +84,7 @@ export default function DocQaPage() {
 
     const handleAsk = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!question || (!file && !docText)) return;
+        if (!question) return;
 
         const userMsg = { role: "user", content: question };
         setChat((prev) => [...prev, userMsg]);
@@ -68,12 +93,8 @@ export default function DocQaPage() {
         setError("");
 
         const formData = new FormData();
-        if (file && !docText) {
-            formData.append("file", file);
-        }
-        formData.append("docText", docText);
-        formData.append("documentId", documentId);
         formData.append("question", question);
+        formData.append("deepSearch", String(deepSearch));
 
         try {
             const res = await fetch("/api/docs/chat", {
@@ -83,9 +104,7 @@ export default function DocQaPage() {
 
             const data = await res.json();
             if (res.ok) {
-                if (data.docText) setDocText(data.docText);
-                if (data.documentId) setDocumentId(data.documentId);
-                setChat((prev) => [...prev, { role: "assistant", content: data.answer }]);
+                setChat((prev) => [...prev, { role: "assistant", content: data.answer, sources: data.sources }]);
             } else {
                 setError(data.error || "Failed to get answer");
                 setChat((prev) => [...prev, { role: "assistant", content: "Sorry, I encountered an error answering that." }]);
@@ -120,140 +139,160 @@ export default function DocQaPage() {
                     </ul>
                 </nav>
             </aside>
-
             <main className="main-content">
                 <header className="header">
                     <div>
-                        <h1 className="title" style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>AI Document QA</h1>
-                        <p style={{ color: '#9ca3af' }}>Upload a PDF or Text file and ask questions about its content</p>
+                        <h1 className="title" style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>AI Workspace</h1>
+                        <p style={{ color: '#9ca3af' }}>Chat with all your documents + Deep Search</p>
                     </div>
                     <LogoutButton />
                 </header>
 
-                <section style={{ display: 'grid', gridTemplateColumns: docText ? '350px 1fr' : '1fr', gap: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '2rem', height: 'calc(100vh - 200px)' }}>
 
-                    {/* Sidebar / Upload Area */}
-                    <div className="card" style={{ maxWidth: 'none', height: 'fit-content' }}>
-                        <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Upload size={20} />
-                            {docText ? "Document Active" : "Upload Document"}
+                    {/* Left Column: Documents */}
+                    <div className="card" style={{ maxWidth: 'none', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FileText size={20} /> My Documents
                         </h3>
 
-                        {!docText ? (
-                            <div
-                                style={{
-                                    border: '2px dashed var(--border)',
-                                    borderRadius: '1rem',
-                                    padding: '2rem',
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                                onClick={() => fileInputRef.current?.click()}
-                                onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                                onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
-                            >
-                                <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt" />
-                                {file ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <FileText size={40} style={{ color: 'var(--primary)', marginBottom: '10px' }} />
-                                        <p style={{ fontSize: '0.875rem', fontWeight: '500' }}>{file.name}</p>
-                                        <button
-                                            className="button"
-                                            onClick={(e) => { e.stopPropagation(); handleUpload(); }}
-                                            disabled={loading}
-                                            style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}
-                                        >
-                                            {loading ? "Parsing..." : "Analyze File"}
+                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {workspaceDocs.length === 0 ? (
+                                <p style={{ color: '#9ca3af', fontSize: '0.875rem', textAlign: 'center', marginTop: '2rem' }}>No documents yet.</p>
+                            ) : (
+                                workspaceDocs.map(doc => (
+                                    <div key={doc.id} style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        padding: '0.75rem', background: 'rgba(255,255,255,0.05)',
+                                        borderRadius: '0.5rem', fontSize: '0.875rem'
+                                    }}>
+                                        <FileText size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Upload Area */}
+                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                            {!file ? (
+                                <button
+                                    className="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={{ background: 'var(--glass)', border: '1px dashed var(--border)', color: '#9ca3af', marginTop: 0 }}
+                                >
+                                    <Upload size={16} style={{ marginRight: '8px' }} /> Upload New PDF/TXT
+                                </button>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '0.875rem', color: 'white' }}>{file.name}</span>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button className="button" onClick={handleUpload} disabled={loading} style={{ marginTop: 0, flex: 1 }}>
+                                            {loading ? <Loader2 className="animate-spin" /> : "Add to Workspace"}
+                                        </button>
+                                        <button onClick={() => setFile(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                                            <X size={20} />
                                         </button>
                                     </div>
-                                ) : (
-                                    <>
-                                        <Paperclip size={30} style={{ color: '#9ca3af', marginBottom: '10px' }} />
-                                        <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Click to select PDF or TXT</p>
-                                    </>
-                                )}
-                            </div>
-                        ) : (
-                            <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <FileText size={20} style={{ color: 'var(--primary)' }} />
-                                        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{file?.name}</span>
-                                    </div>
-                                    <button onClick={() => { setDocText(""); setFile(null); setChat([]); setDocumentId(""); }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>
-                                        <X size={16} />
-                                    </button>
                                 </div>
-                                <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '10px' }}>
-                                    Ready for questions. Context limit: ~30,000 characters.
-                                </p>
-                            </div>
-                        )}
-
-                        {error && (
-                            <div style={{ marginTop: '1rem', color: '#ef4444', fontSize: '0.875rem', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '0.5rem' }}>
-                                {error}
-                            </div>
-                        )}
+                            )}
+                            <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.txt" />
+                            {error && <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem' }}>{error}</p>}
+                        </div>
                     </div>
 
-                    {/* Chat Area */}
-                    {docText && (
-                        <div className="card" style={{ maxWidth: 'none', display: 'flex', flexDirection: 'column', height: '600px', backgroundImage: 'radial-gradient(circle at top right, rgba(59, 130, 246, 0.03), transparent)' }}>
-                            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '10px', display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                                {chat.map((msg, i) => (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                                            maxWidth: '80%',
-                                            padding: '1rem',
-                                            borderRadius: msg.role === 'user' ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0',
-                                            background: msg.role === 'user' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
-                                            color: msg.role === 'user' ? 'white' : '#d1d5db',
-                                            border: msg.role === 'system' ? '1px dashed var(--border)' : 'none',
-                                            fontSize: '0.875rem'
-                                        }}
-                                    >
-                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                                    </div>
-                                ))}
-                                {loading && (
-                                    <div style={{ alignSelf: 'flex-start', padding: '1rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '1rem 1rem 1rem 0' }}>
-                                        <Loader2 className="animate-spin" size={18} />
-                                    </div>
-                                )}
-                            </div>
+                    {/* Right Column: Chat */}
+                    <div className="card" style={{ maxWidth: 'none', display: 'flex', flexDirection: 'column', height: '100%', padding: '0' }}>
 
-                            <form onSubmit={handleAsk} style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
-                                <input
-                                    type="text"
-                                    className="input"
-                                    placeholder="Ask a question about this document..."
-                                    value={question}
-                                    onChange={(e) => setQuestion(e.target.value)}
-                                    disabled={loading}
-                                />
-                                <button type="submit" className="button" style={{ width: 'auto', padding: '0 1.5rem', marginTop: 0 }} disabled={loading || !question}>
-                                    <Send size={18} />
-                                </button>
+                        {/* Chat Messages */}
+                        <div ref={chatContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {chat.length === 0 && (
+                                <div style={{ textAlign: 'center', color: '#9ca3af', marginTop: '3rem' }}>
+                                    <MessageSquare size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                                    <p>Ask a question across your entire workspace.</p>
+                                    <p style={{ fontSize: '0.875rem' }}>Try enabling Deep Search for web results.</p>
+                                </div>
+                            )}
+                            {chat.map((msg, i) => (
+                                <div key={i} style={{ display: 'flex', gap: '1rem', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row' }}>
+                                    <div style={{
+                                        width: '32px', height: '32px', borderRadius: '50%',
+                                        background: msg.role === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                    }}>
+                                        {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                                    </div>
+                                    <div style={{ maxWidth: '80%' }}>
+                                        <div style={{
+                                            background: msg.role === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                            padding: '1rem', borderRadius: '1rem',
+                                            color: msg.role === 'user' ? 'white' : '#d1d5db'
+                                        }}>
+                                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                        </div>
+                                        {msg.sources && msg.sources.length > 0 && (
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#6b7280', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                <span style={{ fontWeight: '600' }}>Sources:</span>
+                                                {msg.sources.map((s, idx) => (
+                                                    <span key={idx} style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{s}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            {loading && (
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Bot size={16} />
+                                    </div>
+                                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '1rem' }}>
+                                        <Loader2 className="animate-spin" size={18} />
+                                        <span style={{ marginLeft: '10px', fontSize: '0.875rem', color: '#9ca3af' }}>Thinking...</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Input Area */}
+                        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)' }}>
+                            <form onSubmit={handleAsk} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="deepSearch"
+                                        checked={deepSearch}
+                                        onChange={(e) => setDeepSearch(e.target.checked)}
+                                        style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }}
+                                    />
+                                    <label htmlFor="deepSearch" style={{ fontSize: '0.875rem', color: deepSearch ? 'var(--primary)' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <Search size={14} /> Enable Deep Search (Web)
+                                    </label>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        placeholder="Ask about your documents or search the web..."
+                                        value={question}
+                                        onChange={(e) => setQuestion(e.target.value)}
+                                        disabled={loading}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <button type="submit" className="button" style={{ width: 'auto', padding: '0 1.5rem', marginTop: 0 }} disabled={loading || !question}>
+                                        <Send size={18} />
+                                    </button>
+                                </div>
                             </form>
                         </div>
-                    )}
-
-                </section>
+                    </div>
+                </div>
             </main>
 
             <style jsx global>{`
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+                .animate-spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }
