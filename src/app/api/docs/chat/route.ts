@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
 
         // 1. Handle File Upload (Add to Workspace)
         if (file) {
+            console.log(`[Upload] Starting processing for file: ${file.name} (${file.type})`);
+
             try {
                 const bytes = await file.arrayBuffer();
                 const buffer = Buffer.from(bytes);
@@ -50,15 +52,19 @@ export async function POST(req: NextRequest) {
                 let fileType = "text";
 
                 if (file.type === "application/pdf") {
+                    console.log("[Upload] Parsing PDF...");
                     fileType = "pdf";
-                    const parser = new PDFParser(null, 1); // 1 = text content only
+                    const parser = new PDFParser(null, true); // true = enable raw text extraction
 
                     content = await new Promise((resolve, reject) => {
-                        parser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
+                        parser.on("pdfParser_dataError", (errData: any) => {
+                            console.error("[Upload] PDF Error:", errData);
+                            reject(new Error(errData.parserError));
+                        });
                         parser.on("pdfParser_dataReady", (pdfData: any) => {
-                            // Extract text from the confusing pdf2json format
                             // @ts-ignore
                             const rawText = parser.getRawTextContent();
+                            console.log(`[Upload] PDF parsed. Length: ${rawText.length}`);
                             resolve(rawText);
                         });
                         parser.parseBuffer(buffer);
